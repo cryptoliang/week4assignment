@@ -20,36 +20,38 @@ contract Trader {
     IERC20 usdcToken = IERC20(usdcAddr);
     TToken tUsdcToken = TToken(tUsdcAddr);
 
-    function short(uint usdcAmount, address tPositionTokenAddr) external {
+    function short(uint usdcAmount, address tPositionTokenAddr ) external {
         usdcToken.transferFrom(msg.sender, address(this), usdcAmount);
 
         if (usdcToken.allowance(address(this), tUsdcAddr) < usdcAmount) {
             usdcToken.approve(tUsdcAddr, type(uint).max);
         }
+
+        uint positionTokenPrice = priceOracle.getUnderlyingPrice(tPositionTokenAddr);
+        uint usdcPrice = priceOracle.getUnderlyingPrice(tUsdcAddr);
+
+        TToken tPositionToken = TToken(tPositionTokenAddr);
+        IERC20 positionToken = IERC20(tPositionToken.underlying());
+
+        // supply USDC and enable collateral
         tUsdcToken.mint(usdcAmount);
         address[] memory tTokens = new address[](1);
         tTokens[0] = tUsdcAddr;
         tectonic.enterMarkets(tTokens);
 
-        uint targetTokenPrice = priceOracle.getUnderlyingPrice(tPositionTokenAddr);
-        uint usdcPrice = priceOracle.getUnderlyingPrice(tUsdcAddr);
-        uint targetTokenAmount = usdcAmount * usdcPrice * 6 / 10 / targetTokenPrice;
+        uint positionTokenAmount = usdcAmount * usdcPrice * 6 / 10 / positionTokenPrice;
 
-        TToken tPositionToken = TToken(tPositionTokenAddr);
-        require(tPositionToken.borrow(targetTokenAmount) == 0, "borrow failed");
+        // borrow position token
+        require(tPositionToken.borrow(positionTokenAmount) == 0, "borrow failed");
 
-        exchangeTokenForUSDC(tPositionToken.underlying(), targetTokenAmount);
-    }
-
-    function exchangeTokenForUSDC(address tokenAddr, uint amount) private {
-        if (IERC20(tokenAddr).allowance(address(this), vvsRouterAddr) < amount) {
-            IERC20(tokenAddr).approve(vvsRouterAddr, type(uint).max);
+        // sell position to get USDC
+        if (positionToken.allowance(address(this), vvsRouterAddr) < positionTokenAmount) {
+            positionToken.approve(vvsRouterAddr, type(uint).max);
         }
-
         address[] memory path = new address[](2);
-        path[0] = tokenAddr;
+        path[0] = tPositionToken.underlying();
         path[1] = usdcAddr;
-        vvsRouter.swapExactTokensForTokens(amount, 0, path, msg.sender, block.timestamp + 3 minutes);
+        vvsRouter.swapExactTokensForTokens(positionTokenAmount, 0, path, address(this), block.timestamp + 3 minutes);
     }
 
     function getClosePositionAmount(address tTokenAddr) public returns (uint) {
