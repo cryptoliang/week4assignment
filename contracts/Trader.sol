@@ -20,7 +20,9 @@ contract Trader {
     IERC20 usdcToken = IERC20(usdcAddr);
     TToken tUsdcToken = TToken(tUsdcAddr);
 
-    function short(uint usdcAmount, address tPositionTokenAddr) external {
+    function short(uint usdcAmount, address tPositionTokenAddr, uint rounds) external {
+        require(rounds > 0 && rounds <= 4, "rounds must be [1, 4]");
+
         usdcToken.transferFrom(msg.sender, address(this), usdcAmount);
 
         if (usdcToken.allowance(address(this), tUsdcAddr) < usdcAmount) {
@@ -30,10 +32,13 @@ contract Trader {
         uint positionTokenPrice = priceOracle.getUnderlyingPrice(tPositionTokenAddr);
         uint usdcPrice = priceOracle.getUnderlyingPrice(tUsdcAddr);
 
-        uint returnedUsdcAmount = _short(usdcAmount, usdcPrice, tPositionTokenAddr, positionTokenPrice);
+        uint leftUsdcAmount = usdcAmount;
+        for (uint i = rounds; i > 0; i--) {
+            leftUsdcAmount = _short(leftUsdcAmount, usdcPrice, tPositionTokenAddr, positionTokenPrice, i);
+        }
     }
 
-    function _short(uint usdcAmount, uint usdcPrice, address tPositionTokenAddr, uint positionTokenPrice) private returns (uint) {
+    function _short(uint usdcAmount, uint usdcPrice, address tPositionTokenAddr, uint positionTokenPrice, uint round) private returns (uint) {
         TToken tPositionToken = TToken(tPositionTokenAddr);
         IERC20 positionToken = IERC20(tPositionToken.underlying());
 
@@ -53,9 +58,10 @@ contract Trader {
             positionToken.approve(vvsRouterAddr, type(uint).max);
         }
         address[] memory path = new address[](2);
-        path[0] = tPositionToken.underlying();
+        path[0] = address(positionToken);
         path[1] = usdcAddr;
-        uint[] memory amounts = vvsRouter.swapExactTokensForTokens(positionTokenAmount, 0, path, address(this), block.timestamp + 3 minutes);
+        address swapTo = round == 1 ? msg.sender : address(this);
+        uint[] memory amounts = vvsRouter.swapExactTokensForTokens(positionTokenAmount, 0, path, swapTo, block.timestamp + 3 minutes);
         return amounts[1];
     }
 

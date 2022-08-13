@@ -35,7 +35,7 @@ describe("Trader", async () => {
         await usdcContract.approve(trader.address, ethers.utils.parseUnits("10000000000", 6));
 
         console.log("USDC balance before short", await usdcContract.balanceOf(accounts[0].address));
-        await trader.short(ethers.utils.parseUnits("1000", 6), tEthAddress)
+        await trader.short(ethers.utils.parseUnits("1000", 6), tEthAddress, 2)
         console.log("USDC balance after short", await usdcContract.balanceOf(accounts[0].address));
         console.log("tUSDC balance after short", await tUsdcContract.balanceOf(trader.address));
         console.log("borrowed ETH after short", await tETHContract.callStatic.borrowBalanceCurrent(trader.address));
