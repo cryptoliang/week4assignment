@@ -20,7 +20,7 @@ contract Trader {
     IERC20 usdcToken = IERC20(usdcAddr);
     TToken tUsdcToken = TToken(tUsdcAddr);
 
-    function short(uint usdcAmount, address tPositionTokenAddr ) external {
+    function short(uint usdcAmount, address tPositionTokenAddr) external {
         usdcToken.transferFrom(msg.sender, address(this), usdcAmount);
 
         if (usdcToken.allowance(address(this), tUsdcAddr) < usdcAmount) {
@@ -30,6 +30,10 @@ contract Trader {
         uint positionTokenPrice = priceOracle.getUnderlyingPrice(tPositionTokenAddr);
         uint usdcPrice = priceOracle.getUnderlyingPrice(tUsdcAddr);
 
+        uint returnedUsdcAmount = _short(usdcAmount, usdcPrice, tPositionTokenAddr, positionTokenPrice);
+    }
+
+    function _short(uint usdcAmount, uint usdcPrice, address tPositionTokenAddr, uint positionTokenPrice) private returns (uint) {
         TToken tPositionToken = TToken(tPositionTokenAddr);
         IERC20 positionToken = IERC20(tPositionToken.underlying());
 
@@ -51,7 +55,8 @@ contract Trader {
         address[] memory path = new address[](2);
         path[0] = tPositionToken.underlying();
         path[1] = usdcAddr;
-        vvsRouter.swapExactTokensForTokens(positionTokenAmount, 0, path, address(this), block.timestamp + 3 minutes);
+        uint[] memory amounts = vvsRouter.swapExactTokensForTokens(positionTokenAmount, 0, path, address(this), block.timestamp + 3 minutes);
+        return amounts[1];
     }
 
     function getClosePositionAmount(address tTokenAddr) public returns (uint) {
