@@ -3,11 +3,9 @@
 pragma solidity >= 0.5.16;
 
 interface TectonicCoreInterface {
-    function getHypotheticalAccountLiquidity(
-        address account,
-        address tTokenModify,
-        uint redeemTokens,
-        uint borrowAmount) external view returns (uint, uint, uint);
+    function getAccountLiquidity(address account) external view returns (uint, uint, uint);
+    function markets(address cTokenAddress) external view returns (bool, uint, bool);
+
     /*** Assets You Are In ***/
 
     function enterMarkets(address[] calldata tTokens) external returns (uint[] memory);

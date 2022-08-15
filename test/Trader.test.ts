@@ -46,4 +46,19 @@ describe("Trader", async () => {
         console.log("tUSDC balance after close position", await tUsdcContract.balanceOf(trader.address));
         console.log("borrowed ETH after close position", await tETHContract.callStatic.borrowBalanceCurrent(trader.address));
     });
+
+    it("should open long position and close position", async () => {
+        console.log("ETH price", await priceOracle.getUnderlyingPrice(tEthAddress));
+        let {trader} = await deployFixture();
+        await usdcContract.approve(trader.address, ethers.utils.parseUnits("10000000000", 6));
+
+        console.log("account USDC balance before long", await usdcContract.balanceOf(accounts[0].address));
+        await trader.long(ethers.utils.parseUnits("1000", 6), tEthAddress, 3)
+        console.log("account USDC balance after long", await usdcContract.balanceOf(accounts[0].address));
+        console.log("trader tETH balance after long", await tETHContract.balanceOf(trader.address));
+        console.log("trader underlying ETH balance after long", await tETHContract.callStatic.balanceOfUnderlying(trader.address));
+        console.log("trader borrowed USDC after long", await tUsdcContract.callStatic.borrowBalanceCurrent(trader.address));
+
+        await trader.close(tEthAddress, tUsdcAddress);
+    });
 })

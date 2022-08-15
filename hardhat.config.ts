@@ -7,7 +7,7 @@ const config: HardhatUserConfig = {
     hardhat: {
       forking: {
         url: "https://evm-cronos.crypto.org",
-        blockNumber: 4096430
+        blockNumber: 4165678
       }
     },
     localhost: {
