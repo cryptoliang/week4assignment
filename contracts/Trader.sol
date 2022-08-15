@@ -26,13 +26,8 @@ contract Trader {
         TToken tPositionToken = TToken(tPositionTokenAddr);
         IERC20 positionToken = IERC20(tPositionToken.underlying());
 
-        if (usdcToken.allowance(address(this), tUsdcAddr) == 0) {
-            usdcToken.approve(tUsdcAddr, type(uint).max);
-        }
-
-        if (positionToken.allowance(address(this), vvsRouterAddr) == 0) {
-            positionToken.approve(vvsRouterAddr, type(uint).max);
-        }
+        approveSpendToken(usdcToken, tUsdcAddr);
+        approveSpendToken(positionToken, vvsRouterAddr);
 
         usdcToken.transferFrom(msg.sender, address(this), usdcAmount);
 
@@ -50,13 +45,8 @@ contract Trader {
         TToken tPositionToken = TToken(tPositionTokenAddr);
         IERC20 positionToken = IERC20(tPositionToken.underlying());
 
-        if (usdcToken.allowance(address(this), vvsRouterAddr) == 0) {
-            usdcToken.approve(vvsRouterAddr, type(uint).max);
-        }
-
-        if (positionToken.allowance(address(this), tPositionTokenAddr) == 0) {
-            positionToken.approve(tPositionTokenAddr, type(uint).max);
-        }
+        approveSpendToken(usdcToken, vvsRouterAddr);
+        approveSpendToken(positionToken, tPositionTokenAddr);
 
         require(usdcToken.transferFrom(msg.sender, address(this), usdcAmount), "Trader: transfer USDC failed");
 
@@ -149,17 +139,18 @@ contract Trader {
         usdcToken.transfer(msg.sender, usdcToken.balanceOf(address(this)));
     }
 
+    function approveSpendToken(IERC20 token, address spender) private {
+        if (token.allowance(address(this), spender) == 0) {
+            token.approve(spender, type(uint).max);
+        }
+    }
+
     function closeLongPosition(address tCollateralTokenAddr) public {
         TToken tCollateralToken = TToken(tCollateralTokenAddr);
         IERC20 collateralToken = IERC20(tCollateralToken.underlying());
 
-        if (collateralToken.allowance(address(this), vvsRouterAddr) == 0) {
-            collateralToken.approve(vvsRouterAddr, type(uint).max);
-        }
-
-        if (usdcToken.allowance(address(this), tUsdcAddr) == 0) {
-            usdcToken.approve(tUsdcAddr, type(uint).max);
-        }
+        approveSpendToken(collateralToken, vvsRouterAddr);
+        approveSpendToken(usdcToken, tUsdcAddr);
 
         uint collateralBalance = tCollateralToken.balanceOfUnderlying(address(this));
         uint borrowBalance = tUsdcToken.borrowBalanceCurrent(address(this));
@@ -168,49 +159,57 @@ contract Trader {
         uint borrowTokenPrice = priceOracle.getUnderlyingPrice(tUsdcAddr);
         (, uint collateralFactor,) = tectonic.markets(tCollateralTokenAddr);
 
-        console.log("collateralTokenPrice: %s", collateralTokenPrice);
-        console.log("borrowTokenPrice: %s", borrowTokenPrice);
-        console.log("collateralFactor: %s", collateralFactor);
+        uint collateralInUSD = collateralBalance * collateralTokenPrice;
+        uint borrowInUSD = borrowBalance * borrowTokenPrice;
 
-        console.log("collateralBalance: %s", collateralBalance);
-        console.log("borrowBalance: %s", borrowBalance);
-        uint netUsd = (collateralBalance * collateralTokenPrice - borrowBalance * borrowTokenPrice) / borrowTokenPrice;
-        console.log("net USDC: %s", netUsd);
+        require(collateralInUSD > borrowInUSD, "Trader: collateral less than loan");
+
+        borrowBalance -= ensure30PercentOfBorrowRepay(collateralInUSD, borrowInUSD, collateralFactor, borrowTokenPrice);
 
         for (uint i = 0; i < 3; i++) {
-            console.log("repay round: %s", i);
-
-            uint collateralInUSD = collateralBalance * collateralTokenPrice;
-            uint borrowInUSD = borrowBalance * borrowTokenPrice;
             uint withdrawCollateralAmount = (collateralInUSD - borrowInUSD * 1e18 / collateralFactor) / collateralTokenPrice;
             tCollateralToken.redeemUnderlying(withdrawCollateralAmount);
-            console.log("redeem collateral: %s", withdrawCollateralAmount);
             uint swappedBorrowTokenAmount = swapExactTokensForTokens(withdrawCollateralAmount, address(collateralToken), usdcAddr, address(this));
-            console.log("swapped collateral to get borrow token: %s", swappedBorrowTokenAmount);
 
             uint repayAmount = swappedBorrowTokenAmount >= borrowBalance ? borrowBalance : swappedBorrowTokenAmount;
             tUsdcToken.repayBorrow(repayAmount);
-            console.log("repay amount: %s", repayAmount);
             borrowBalance = borrowBalance - repayAmount;
             collateralBalance = collateralBalance - withdrawCollateralAmount;
-            console.log("collateralBalance: %s", collateralBalance);
-            console.log("borrowBalance: %s", borrowBalance);
-            if(borrowBalance == 0) break;
+            borrowInUSD = borrowBalance * borrowTokenPrice;
+            collateralInUSD = collateralBalance * collateralTokenPrice;
+            if (borrowBalance == 0) break;
         }
 
         if (borrowBalance > 0) {
-            console.log("transfer USDC from msg.sender: %s", borrowBalance);
             usdcToken.transferFrom(msg.sender, address(this), borrowBalance);
-            console.log("repay amount: %s", borrowBalance);
             tUsdcToken.repayBorrow(borrowBalance);
         }
 
         tCollateralToken.redeemUnderlying(collateralBalance);
-        console.log("redeem collateral: %s", collateralBalance);
-        uint swappedBorrowTokenAmount = swapExactTokensForTokens(collateralBalance, address(collateralToken), usdcAddr, address(this));
-        console.log("swapped collateral to get borrow token: %s", swappedBorrowTokenAmount);
+        swapExactTokensForTokens(collateralBalance, address(collateralToken), usdcAddr, address(this));
         uint usdcBalance = usdcToken.balanceOf(address(this));
         usdcToken.transfer(msg.sender, usdcBalance);
-        console.log("transfer USDC back to user: %s", usdcBalance);
+    }
+
+    function ensure30PercentOfBorrowRepay(uint collateralInUSD, uint borrowInUSD, uint collateralFactor, uint borrowTokenPrice) private returns (uint) {
+        // below required collateral
+        if (collateralInUSD <= borrowInUSD * 1e18 / collateralFactor) {
+            uint overBorrowedInUSD = borrowInUSD - collateralInUSD * collateralFactor / 1e18;
+            uint repayAmount = ((borrowInUSD - overBorrowedInUSD) * 3 / 10 + overBorrowedInUSD) / borrowTokenPrice;
+            usdcToken.transferFrom(msg.sender, address(this), repayAmount);
+            tUsdcToken.repayBorrow(repayAmount);
+            return repayAmount;
+        }
+
+        // available collateral below 30% of borrow
+        uint availableCollateralInUSD = collateralInUSD - borrowInUSD * 1e18 / collateralFactor;
+        uint borrow30PercentInUSD = borrowInUSD * 3 / 10;
+        if (availableCollateralInUSD < borrow30PercentInUSD) {
+            uint repayAmount = (borrow30PercentInUSD - availableCollateralInUSD) / borrowTokenPrice;
+            usdcToken.transferFrom(msg.sender, address(this), repayAmount);
+            tUsdcToken.repayBorrow(repayAmount);
+            return repayAmount;
+        }
+        return 0;
     }
 }
