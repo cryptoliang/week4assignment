@@ -39,9 +39,8 @@ describe("Trader", async () => {
         console.log("USDC balance after short", await usdcContract.balanceOf(accounts[0].address));
         console.log("tUSDC balance after short", await tUsdcContract.balanceOf(trader.address));
         console.log("borrowed ETH after short", await tETHContract.callStatic.borrowBalanceCurrent(trader.address));
-        console.log("USDC needed to close position", await trader.callStatic.getClosePositionAmount(tEthAddress));
 
-        await trader.closePosition(tEthAddress);
+        await trader.closeShortPosition(tEthAddress);
         console.log("USDC balance after close position", await usdcContract.balanceOf(accounts[0].address));
         console.log("tUSDC balance after close position", await tUsdcContract.balanceOf(trader.address));
         console.log("borrowed ETH after close position", await tETHContract.callStatic.borrowBalanceCurrent(trader.address));
