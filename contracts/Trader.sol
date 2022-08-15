@@ -149,26 +149,23 @@ contract Trader {
         usdcToken.transfer(msg.sender, usdcToken.balanceOf(address(this)));
     }
 
-    function close(address tCollateralTokenAddr, address tBorrowTokenAddr) public {
+    function closeLongPosition(address tCollateralTokenAddr) public {
         TToken tCollateralToken = TToken(tCollateralTokenAddr);
         IERC20 collateralToken = IERC20(tCollateralToken.underlying());
-
-        TToken tBorrowToken = TToken(tBorrowTokenAddr);
-        IERC20 borrowToken = IERC20(tBorrowToken.underlying());
 
         if (collateralToken.allowance(address(this), vvsRouterAddr) == 0) {
             collateralToken.approve(vvsRouterAddr, type(uint).max);
         }
 
-        if (borrowToken.allowance(address(this), tBorrowTokenAddr) == 0) {
-            borrowToken.approve(tBorrowTokenAddr, type(uint).max);
+        if (usdcToken.allowance(address(this), tUsdcAddr) == 0) {
+            usdcToken.approve(tUsdcAddr, type(uint).max);
         }
 
         uint collateralBalance = tCollateralToken.balanceOfUnderlying(address(this));
-        uint borrowBalance = tBorrowToken.borrowBalanceCurrent(address(this));
+        uint borrowBalance = tUsdcToken.borrowBalanceCurrent(address(this));
 
         uint collateralTokenPrice = priceOracle.getUnderlyingPrice(tCollateralTokenAddr);
-        uint borrowTokenPrice = priceOracle.getUnderlyingPrice(tBorrowTokenAddr);
+        uint borrowTokenPrice = priceOracle.getUnderlyingPrice(tUsdcAddr);
         (, uint collateralFactor,) = tectonic.markets(tCollateralTokenAddr);
 
         console.log("collateralTokenPrice: %s", collateralTokenPrice);
@@ -192,7 +189,7 @@ contract Trader {
             console.log("swapped collateral to get borrow token: %s", swappedBorrowTokenAmount);
 
             uint repayAmount = swappedBorrowTokenAmount >= borrowBalance ? borrowBalance : swappedBorrowTokenAmount;
-            tBorrowToken.repayBorrow(repayAmount);
+            tUsdcToken.repayBorrow(repayAmount);
             console.log("repay amount: %s", repayAmount);
             borrowBalance = borrowBalance - repayAmount;
             collateralBalance = collateralBalance - withdrawCollateralAmount;
@@ -205,7 +202,7 @@ contract Trader {
             console.log("transfer USDC from msg.sender: %s", borrowBalance);
             usdcToken.transferFrom(msg.sender, address(this), borrowBalance);
             console.log("repay amount: %s", borrowBalance);
-            tBorrowToken.repayBorrow(borrowBalance);
+            tUsdcToken.repayBorrow(borrowBalance);
         }
 
         tCollateralToken.redeemUnderlying(collateralBalance);
