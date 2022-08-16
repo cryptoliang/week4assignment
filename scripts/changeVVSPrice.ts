@@ -13,7 +13,7 @@ const deadline = Math.floor(Date.now() / 1000) + 180;
 
 async function main() {
     console.log("=========== Change VVS WETH/USDC swap price =============")
-    const targetUsdcPerETH = 2000;
+    const targetUsdcPerETH = 1000;
 
     await network.provider.request({method: "hardhat_impersonateAccount", params: [usdcOwnerAddr]});
     await network.provider.request({method: "hardhat_impersonateAccount", params: [wethOwnerAddr]});
