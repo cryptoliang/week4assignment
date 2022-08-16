@@ -9,7 +9,7 @@ const tEthAddr = "0x543F4Db9BD26C9Eb6aD4DD1C33522c966C625774";
 
 async function main() {
     console.log("=========== Change USD/ETH Oracle price =============")
-    const price = 1000_00000000;
+    const price = 2000_00000000;
 
     await network.provider.request({
         method: "hardhat_impersonateAccount",

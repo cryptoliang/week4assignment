@@ -33,8 +33,8 @@ async function main() {
     let wethAmount = await getAndLogBalance(weth, ethUsdcPairAddress)
     let ratio = usdcAmount / wethAmount;
 
-    let wethAdd = ethers.utils.parseUnits("100", 18);
-    let usdcAdd = ethers.utils.parseUnits((100 * ratio).toFixed(6), 6);
+    let wethAdd = ethers.utils.parseUnits("1000", 18);
+    let usdcAdd = ethers.utils.parseUnits((1000 * ratio).toFixed(6), 6);
     let signerAddr = vvsRouter.signer.getAddress();
     await weth.mint(signerAddr, wethAdd);
     await usdc.mint(signerAddr, usdcAdd);

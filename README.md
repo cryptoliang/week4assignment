@@ -1,13 +1,12 @@
-# Sample Hardhat Project
+# Leverage Trading with VVS and Tectonic
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
-
-Try running some of the following tasks:
 
 ```shell
-npx hardhat help
-npx hardhat test
-GAS_REPORT=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.ts
+hh run scripts/sendUSDC.ts
+hh run scripts/deploy.ts
+hh run scripts/addLiquidity.ts 
+hh run scripts/changeOraclePrice.ts
+hh run scripts/changeVVSPrice.ts
+hh run scripts/openLongPosition.ts 
+hh run scripts/closeLongPosition.ts 
 ```
