@@ -268,7 +268,7 @@ contract Trader {
             address borrowTokenAddr = tBorrowToken.underlying();
             uint needUsdcAmount = needAmountIn(usdcAddr, borrowTokenAddr, repayAmount);
             usdcToken.transferFrom(msg.sender, address(this), needUsdcAmount);
-            uint swappedBorrowTokenAmount = swapExactTokensForTokens(needUsdcAmount, usdcAddr, borrowTokenAddr, address(this));
+            swapExactTokensForTokens(needUsdcAmount, usdcAddr, borrowTokenAddr, address(this));
             tBorrowToken.repayBorrow(repayAmount);
         }
         return repayAmount;
