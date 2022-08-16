@@ -12,9 +12,7 @@ const vvsRouterAddress = "0x145863Eb42Cf62847A6Ca784e6416C1682b1b2Ae";
 const deadline = Math.floor(Date.now() / 1000) + 180;
 
 async function main() {
-    console.log("=========== Change VVS WETH/USDC swap price =============")
-    const targetUsdcPerETH = 2000;
-
+    console.log("=========== Add Liquidity USDC/WETH =============")
     await network.provider.request({method: "hardhat_impersonateAccount", params: [usdcOwnerAddr]});
     await network.provider.request({method: "hardhat_impersonateAccount", params: [wethOwnerAddr]});
 
@@ -31,36 +29,19 @@ async function main() {
     weth.connect(signer).approve(vvsRouterAddress, ethers.constants.MaxUint256);
     usdc.connect(signer).approve(vvsRouterAddress, ethers.constants.MaxUint256);
 
-    let usdcCurrent = await getAndLogBalance(usdc, ethUsdcPairAddress)
-    let wethCurrent = await getAndLogBalance(weth, ethUsdcPairAddress)
-    console.log("Current price USDC/WETH:", usdcCurrent / wethCurrent);
-
-    if (Math.abs(usdcCurrent / wethCurrent - targetUsdcPerETH) < 1) {
-        console.log("Current price is already the desired:", usdcCurrent / wethCurrent);
-        return;
-    }
-
-    let k = usdcCurrent * wethCurrent;
-    let usdcDesired = Number(Math.sqrt(k * targetUsdcPerETH).toFixed(6));
-    let wethDesired = Math.sqrt(k / targetUsdcPerETH);
-
-    if (wethDesired > wethCurrent) {
-        let wethInput = ethers.utils.parseUnits((wethDesired - wethCurrent).toString(), 18);
-
-        await weth.mint(signer.address, wethInput);
-        await vvsRouter.swapExactTokensForTokens(wethInput, 0, [wethAddr, usdcAddr], signer.address, deadline);
-    } else {
-        let usdcSwapped = ethers.utils.parseUnits((usdcDesired - usdcCurrent).toFixed(6), 6);
-
-        await usdc.mint(signer.address, usdcSwapped);
-        await vvsRouter.swapExactTokensForTokens(usdcSwapped, 0, [usdcAddr, wethAddr], signer.address, deadline);
-    }
-
-    console.log("------ Price change finished -------");
-
     let usdcAmount = await getAndLogBalance(usdc, ethUsdcPairAddress)
     let wethAmount = await getAndLogBalance(weth, ethUsdcPairAddress)
-    console.log("Current price USDC/WETH:", usdcAmount / wethAmount);
+    let ratio = usdcAmount / wethAmount;
+
+    let wethAdd = ethers.utils.parseUnits("100", 18);
+    let usdcAdd = ethers.utils.parseUnits((100 * ratio).toFixed(6), 6);
+    let signerAddr = vvsRouter.signer.getAddress();
+    await weth.mint(signerAddr, wethAdd);
+    await usdc.mint(signerAddr, usdcAdd);
+    await vvsRouter.addLiquidity(usdcAddr, wethAddr, usdcAdd, wethAdd, 0, 0, signerAddr, deadline);
+    console.log("---------- add liquidity finished ------------");
+    await getAndLogBalance(usdc, ethUsdcPairAddress)
+    await getAndLogBalance(weth, ethUsdcPairAddress)
 }
 
 async function getBalance(token: Contract, addr: string) {

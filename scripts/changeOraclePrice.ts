@@ -9,7 +9,7 @@ const tEthAddr = "0x543F4Db9BD26C9Eb6aD4DD1C33522c966C625774";
 
 async function main() {
     console.log("=========== Change USD/ETH Oracle price =============")
-    const price = 1000_00000000 ;
+    const price = 1000_00000000;
 
     await network.provider.request({
         method: "hardhat_impersonateAccount",
@@ -21,7 +21,7 @@ async function main() {
     const cronosOracle = new ethers.Contract(usdEthPriceOracleAddr, cronosOracleABI, owner);
     const priceOracle = await ethers.getContractAt(priceOracleABI, priceOracleAddr);
 
-    const timestamp = Math.floor(Date.now()/1000);
+    const timestamp = Math.floor(Date.now() / 1000);
     const roundId = timestamp * 100000;
 
     let ethPriceBefore = await priceOracle.getUnderlyingPrice(tEthAddr);
